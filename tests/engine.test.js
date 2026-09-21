@@ -212,4 +212,99 @@ test('a field containing a comma is quoted in the CSV', () => {
   assert(line.indexOf('"Minuet in G, BWV Anh. 114"') >= 0, 'quoted: ' + line);
 });
 
+test('a section with no list of its own inherits the default set', () => {
+  const { PP, state, section } = setup();
+  eq(PP.criteria.sourceFor(state, section.id), 'default');
+  eq(PP.criteria.resolveFor(state, section.id).length, state.settings.activeCriteria.length);
+});
+
+test('a piece list overrides the default set for all its bits', () => {
+  const { PP, state, section } = setup();
+  state.pieces[0].criteria = ['soft_tone', 'breath'];
+  eq(PP.criteria.sourceFor(state, section.id), 'piece');
+  eq(PP.criteria.resolveFor(state, section.id).join(), 'soft_tone,breath');
+});
+
+test('a section list overrides its piece list', () => {
+  const { PP, state, section } = setup();
+  state.pieces[0].criteria = ['soft_tone', 'breath'];
+  section.criteria = ['wrist_rotate'];
+  eq(PP.criteria.sourceFor(state, section.id), 'section');
+  eq(PP.criteria.resolveFor(state, section.id).join(), 'wrist_rotate');
+  /* sibling bits are untouched by one bit's override */
+  eq(PP.criteria.resolveFor(state, state.pieces[0].sections[1].id).join(), 'soft_tone,breath');
+});
+
+test('an empty list means inherit, never "no criteria at all"', () => {
+  const { PP, state, section } = setup();
+  section.criteria = [];
+  eq(PP.criteria.sourceFor(state, section.id), 'default');
+  assert(PP.criteria.resolveFor(state, section.id).length > 0, 'she can always tag something');
+});
+
+test('the library covers the points a teacher actually names', () => {
+  const { PP } = setup();
+  ['soft_tone', 'legato', 'staccato', 'breath', 'phrase_shape',
+   'wrist_rotate', 'arm_circle', 'lift', 'rushed', 'tempo_hold'].forEach((id) => {
+    assert(PP.criteria.get(id), 'library is missing ' + id);
+  });
+  assert(PP.criteria.library().length >= 45, 'library is substantial');
+});
+
+test('every criterion has a group that exists, and no id is duplicated', () => {
+  const { PP } = setup();
+  const groups = PP.criteria.GROUPS.map((g) => g.id);
+  const seen = {};
+  PP.criteria.library().forEach((c) => {
+    assert(groups.indexOf(c.group) >= 0, c.id + ' has unknown group ' + c.group);
+    assert(c.label && c.emoji, c.id + ' needs a label and an emoji');
+    assert(!seen[c.id], 'duplicate id ' + c.id);
+    seen[c.id] = true;
+  });
+});
+
+test('a custom criterion behaves like a built-in one', () => {
+  const { PP, state, section } = setup();
+  state.settings.customCriteria.push({
+    id: 'cc_1', custom: true, group: 'gesture',
+    emoji: '🌀', label: 'Rotate the wrist', hint: 'Roll, do not poke'
+  });
+  eq(PP.criteria.label('cc_1'), 'Rotate the wrist');
+  eq(PP.criteria.emoji('cc_1'), '🌀');
+
+  section.criteria = ['cc_1'];
+  eq(PP.criteria.resolveFor(state, section.id).join(), 'cc_1');
+
+  PP.engine.recordPass(state, { sectionId: section.id, ok: false, tags: ['cc_1'] });
+  const mix = PP.stats.criteriaMix(state, 0);
+  eq(mix.rows[0].label, 'Rotate the wrist');
+  assert(PP.stats.passesCsv(state).indexOf('Rotate the wrist') >= 0, 'custom label reaches the CSV');
+});
+
+test('clean() drops ids that no longer exist', () => {
+  const { PP } = setup();
+  eq(PP.criteria.clean(['wrong_note', 'gone_forever', 'rushed']).join(), 'wrong_note,rushed');
+  eq(PP.criteria.clean(['rushed', 'rushed']).join(), 'rushed', 'and de-duplicates');
+});
+
+test('a shrunk section keeps what its parent was working on', () => {
+  const { PP, state, section } = setup();
+  section.criteria = ['soft_tone', 'wrist_rotate'];
+  const child = PP.engine.shrinkSection(state, section.id);
+  eq(PP.criteria.resolveFor(state, child.id).join(), 'soft_tone,wrist_rotate');
+});
+
+test('an old save file with no criteria fields still opens', () => {
+  const { PP } = setup();
+  const old = {
+    v: 1, settings: { streakGoal: 3, activeCriteria: ['wrong_note'] },
+    pieces: [{ id: 'p1', name: 'X', sections: [{ id: 's1', label: 'A' }] }],
+    passes: [], runs: [], sessions: [], stickers: [], badges: [], coachEvents: []
+  };
+  const fixed = PP.store.normalize(old);
+  eq(fixed.pieces[0].criteria, null, 'piece defaults to inherit');
+  eq(fixed.pieces[0].sections[0].criteria, null, 'section defaults to inherit');
+  assert(Array.isArray(fixed.settings.customCriteria), 'custom list created');
+});
+
 report();

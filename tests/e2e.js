@@ -193,6 +193,56 @@ function assert(cond, msg) { if (!cond) { throw new Error(msg); } }
     await shot('09-parent-pieces');
   });
 
+  await step('a bit can be assigned its own criteria from the parent area', async () => {
+    await page.click('.tabs button:nth-child(2)');           /* Pieces */
+    await page.waitForSelector('.toggle-row .linkish');
+    await page.click('.toggle-row .linkish');                /* edit the first bit */
+    await page.waitForSelector('.sheet >> text=Criteria for this bit');
+    await page.click('.sheet >> text=Choose');
+    await page.waitForSelector('.sheet .chip');
+    /* a soft-tone / wrist-rotation / breathing bit, like Section C */
+    for (const id of ['Not a soft tone', 'No wrist rotation', 'Forgot to breathe']) {
+      await page.click(`.sheet .chip:has-text("${id}")`);
+    }
+    await page.click('.sheet >> text=Save list');
+    await page.waitForSelector('text=3 own criteria');
+  });
+
+  await step('the practice screen then shows only those criteria', async () => {
+    await page.click('.tabbar button:nth-child(1)');
+    await page.click('.section-row');
+    await page.waitForSelector('.judge');
+    await page.click('.judge .oops');
+    await page.waitForSelector('.sheet .chip');
+    const chips = await page.$$('.sheet .chip');
+    assert(chips.length === 3, 'exactly the three assigned chips, got ' + chips.length);
+    const text = await page.textContent('.sheet');
+    assert(text.includes('Not a soft tone'), 'soft tone chip present');
+    assert(text.includes('No wrist rotation'), 'wrist rotation chip present');
+    assert(text.includes('Working on'), 'labelled as the assigned set');
+    await shot('10-assigned-criteria');
+  });
+
+  await step('the rest of the library is still one tap away', async () => {
+    await page.click('.sheet >> text=Something else?');
+    await page.waitForFunction(() => document.querySelectorAll('.sheet .chip').length > 20);
+    const chips = await page.$$('.sheet .chip');
+    assert(chips.length > 40, 'full library revealed, got ' + chips.length);
+    await page.click('.sheet >> text=Never mind');
+  });
+
+  await step('a parent can write their own criterion', async () => {
+    await page.click('.tabbar button:nth-child(3)');
+    await page.click('.tabs button:nth-child(3)');           /* Library */
+    await page.waitForSelector('text=+ Write my own criterion');
+    await page.click('text=+ Write my own criterion');
+    await page.waitForSelector('.sheet input');
+    await page.fill('.sheet input:nth-of-type(1)', 'Breathe each measure');
+    await page.click('.sheet >> text=Save');
+    await page.waitForSelector('text=Breathe each measure');
+    await shot('11-library');
+  });
+
   await step('the practice data survives a reload', async () => {
     await page.goto(base, { waitUntil: 'load' });
     await page.waitForSelector('.section-row');

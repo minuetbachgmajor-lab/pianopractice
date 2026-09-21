@@ -31,7 +31,7 @@
     }
 
     var tabs = el('div', { class: 'tabs' });
-    [['reports', '📊 Reports'], ['pieces', '🎼 Pieces'], ['criteria', '🏷 Criteria'],
+    [['reports', '📊 Reports'], ['pieces', '🎼 Pieces'], ['criteria', '🏷 Library'],
      ['settings', '⚙️ Settings'], ['data', '💾 Data']].forEach(function (t) {
       tabs.appendChild(el('button', {
         class: tab === t[0] ? 'on' : '',
@@ -276,7 +276,11 @@
       el('div', { class: 'grow' }, [
         el('div', { style: 'font-weight:600;font-size:15px', text: (section.auto ? '🔍 ' : '') + section.label }),
         el('div', { class: 'tiny muted', text: (section.tempo ? '♩ = ' + section.tempo + ' · ' : '') +
-          (section.notes || 'no note') })
+          (section.notes || 'no note') }),
+        el('div', { class: 'tiny', style: 'color:var(--grape)', text:
+          '🏷 ' + (w.PP.criteria.isAssigned(section.criteria)
+            ? section.criteria.length + ' own criteria'
+            : (w.PP.criteria.isAssigned(piece.criteria) ? 'piece list' : 'default list')) })
       ]),
       el('button', { class: 'linkish', onclick: editSection(piece, section, container) }, ['Edit'])
     ]);
@@ -289,7 +293,7 @@
         var state = w.PP.store.get();
         state.pieces.push({
           id: w.PP.store.uid('pc'), name: name.trim(), composer: '', emoji: '🎵',
-          createdAt: Date.now(), archived: false, sections: []
+          createdAt: Date.now(), archived: false, criteria: null, sections: []
         });
         w.PP.store.save();
         render(container);
@@ -307,7 +311,33 @@
         box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Name' }), name]));
         box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Composer' }), composer]));
         box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Emoji' }), emoji]));
-        box.appendChild(el('div', { class: 'btn-row' }, [
+
+        var state = w.PP.store.get();
+        box.appendChild(el('div', { class: 'toggle-row' }, [
+          el('div', { class: 'grow' }, [
+            el('div', { style: 'font-weight:600;font-size:15px', text: 'Criteria for this piece' }),
+            el('div', { class: 'tiny muted', text:
+              assignmentSummary(piece.criteria, state.settings.activeCriteria.length, 'the default set') })
+          ]),
+          el('button', {
+            class: 'linkish',
+            onclick: function () {
+              api.close();
+              criteriaPicker({
+                title: 'What is this piece working on?',
+                blurb: 'These chips show for every bit of "' + piece.name + '" unless a bit has its own list.',
+                selected: piece.criteria || [],
+                inheritedPreview: previewOf(state.settings.activeCriteria),
+                inheritLabel: 'Use the default set'
+              }, function (list) {
+                piece.criteria = list && list.length ? list : null;
+                w.PP.store.save(); render(container);
+              });
+            }
+          }, ['Choose'])
+        ]));
+
+        box.appendChild(el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
           el('button', { class: 'btn ghost', onclick: api.close }, ['Cancel']),
           el('button', {
             class: 'btn',
@@ -355,7 +385,39 @@
       box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Note for her' }), notes]));
       box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Target tempo (♩ per minute)' }), tempo]));
 
-      box.appendChild(el('div', { class: 'btn-row' }, [
+      if (section) {
+        var st = w.PP.store.get();
+        var inheritCount = w.PP.criteria.isAssigned(piece.criteria)
+          ? piece.criteria.length : st.settings.activeCriteria.length;
+        var inheritWord = w.PP.criteria.isAssigned(piece.criteria) ? 'the piece list' : 'the default set';
+        box.appendChild(el('div', { class: 'toggle-row' }, [
+          el('div', { class: 'grow' }, [
+            el('div', { style: 'font-weight:600;font-size:15px', text: 'Criteria for this bit' }),
+            el('div', { class: 'tiny muted', text: assignmentSummary(section.criteria, inheritCount, inheritWord) })
+          ]),
+          el('button', {
+            class: 'linkish',
+            onclick: function () {
+              api.close();
+              criteriaPicker({
+                title: 'What is this bit working on?',
+                blurb: 'Only these chips appear when she taps Oops here. Three to six is plenty.',
+                selected: section.criteria || [],
+                inheritedPreview: previewOf(w.PP.criteria.resolveFor(st, section.id)),
+                inheritLabel: 'Use ' + inheritWord
+              }, function (list) {
+                section.criteria = list && list.length ? list : null;
+                w.PP.store.save(); render(container);
+              });
+            }
+          }, ['Choose'])
+        ]));
+      } else {
+        box.appendChild(el('p', { class: 'tiny muted', text:
+          'Save the bit first, then reopen it to choose what it is working on.' }));
+      }
+
+      box.appendChild(el('div', { class: 'btn-row', style: 'margin-top:10px' }, [
         el('button', { class: 'btn ghost', onclick: api.close }, ['Cancel']),
         el('button', {
           class: 'btn',
@@ -370,7 +432,7 @@
               piece.sections.push({
                 id: w.PP.store.uid('sc'), label: label.value.trim(), notes: notes.value.trim(),
                 tempo: isNaN(t) ? null : t, archived: false, createdAt: Date.now(),
-                auto: false, parentId: null
+                auto: false, parentId: null, criteria: null
               });
             }
             w.PP.store.save(); api.close(); render(container);
@@ -394,22 +456,35 @@
     });
   }
 
-  /* ---- criteria ------------------------------------------------------ */
+  /* ---- criteria library ---------------------------------------------- */
   function criteria(body, state, container) {
     body.appendChild(el('div', { class: 'card' }, [
-      el('h2', { text: 'Which things can she tag?' }),
+      el('h2', { text: 'Criteria library' }),
       el('p', { class: 'tiny muted', text:
-        'These are the chips she taps after an imperfect pass. Start with a handful — too many choices ' +
-        'and an eight-year-old taps whatever is first. Add the subtler ones (balance, phrasing, pedal) ' +
-        'as her ear grows.' })
+        'Everything she can tag after an imperfect pass. The switches below set the ' +
+        'DEFAULT list — what a piece or bit uses when nothing more specific is assigned. ' +
+        'To make one bit listen for its own things (soft tone, wrist rotation, breathing), ' +
+        'assign criteria to it in the Pieces tab.' }),
+      el('button', {
+        class: 'btn block', style: 'margin-top:10px',
+        onclick: function () { newCustomCriterion(container); }
+      }, ['+ Write my own criterion'])
     ]));
 
-    var groups = w.PP.criteria.GROUPS, gi, ci, list, card;
+    var groups = w.PP.criteria.GROUPS, gi, ci, list, card, count;
     for (gi = 0; gi < groups.length; gi++) {
+      list = w.PP.criteria.inGroup(groups[gi].id);
+      if (!list.length) { continue; }
+      count = 0;
+      for (ci = 0; ci < list.length; ci++) {
+        if (state.settings.activeCriteria.indexOf(list[ci].id) >= 0) { count += 1; }
+      }
       card = el('div', { class: 'card' }, [
-        el('h3', { text: groups[gi].emoji + '  ' + groups[gi].label })
+        el('div', { class: 'card-head' }, [
+          el('div', { class: 'grow' }, [el('h3', { text: groups[gi].emoji + '  ' + groups[gi].label, style: 'margin:0' })]),
+          el('span', { class: 'pill' + (count ? ' ok' : ''), text: count + ' of ' + list.length })
+        ])
       ]);
-      list = w.PP.criteria.ALL.filter(function (c) { return c.group === groups[gi].id; });
       for (ci = 0; ci < list.length; ci++) {
         card.appendChild(criterionToggle(state, list[ci], container));
       }
@@ -430,11 +505,184 @@
 
     return el('div', { class: 'toggle-row' }, [
       el('div', { class: 'grow' }, [
-        el('div', { style: 'font-weight:600;font-size:15px', text: crit.emoji + '  ' + crit.label }),
+        el('div', { style: 'font-weight:600;font-size:15px' }, [
+          crit.emoji + '  ' + crit.label,
+          crit.custom ? el('span', { class: 'pill', style: 'margin-left:6px', text: 'mine' }) : null
+        ]),
         el('div', { class: 'tiny muted', text: crit.hint })
       ]),
+      crit.custom
+        ? el('button', { class: 'linkish', style: 'margin-right:8px',
+            onclick: function () { editCustomCriterion(crit, container); } }, ['Edit'])
+        : null,
       sw
     ]);
+  }
+
+  function newCustomCriterion(container) {
+    customSheet(null, container);
+  }
+  function editCustomCriterion(crit, container) {
+    customSheet(crit, container);
+  }
+
+  function customSheet(crit, container) {
+    ui.sheet(function (box, api) {
+      var state = w.PP.store.get();
+      var label = el('input', { type: 'text', value: crit ? crit.label : '', placeholder: 'e.g. Rotate the wrist' });
+      var hint = el('input', { type: 'text', value: crit ? crit.hint : '', placeholder: 'A few words in her language' });
+      var emoji = el('input', { type: 'text', value: crit ? crit.emoji : '🎯', maxlength: '4' });
+      var group = el('select');
+      w.PP.criteria.GROUPS.forEach(function (g) {
+        var o = el('option', { value: g.id, text: g.emoji + '  ' + g.label });
+        if (crit && crit.group === g.id) { o.setAttribute('selected', 'selected'); }
+        group.appendChild(o);
+      });
+
+      box.appendChild(el('h2', { text: crit ? 'Edit criterion' : 'New criterion' }));
+      box.appendChild(el('p', { class: 'tiny muted', text:
+        'Write it as something she can hear or feel, not as a rule. "Rotate the wrist" ' +
+        'beats "poor technique".' }));
+      box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'What slipped' }), label]));
+      box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Hint underneath' }), hint]));
+      box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Emoji' }), emoji]));
+      box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Group' }), group]));
+
+      box.appendChild(el('div', { class: 'btn-row' }, [
+        el('button', { class: 'btn ghost', onclick: api.close }, ['Cancel']),
+        el('button', {
+          class: 'btn',
+          onclick: function () {
+            if (!label.value.trim()) { return; }
+            if (crit) {
+              crit.label = label.value.trim();
+              crit.hint = hint.value.trim();
+              crit.emoji = emoji.value.trim() || '🎯';
+              crit.group = group.value;
+            } else {
+              var made = {
+                id: w.PP.store.uid('cc'), custom: true,
+                label: label.value.trim(), hint: hint.value.trim(),
+                emoji: emoji.value.trim() || '🎯', group: group.value
+              };
+              state.settings.customCriteria.push(made);
+              state.settings.activeCriteria.push(made.id);
+            }
+            w.PP.store.save(); api.close(); render(container);
+          }
+        }, ['Save'])
+      ]));
+
+      if (crit) {
+        box.appendChild(el('button', {
+          class: 'btn ghost block', style: 'margin-top:10px',
+          onclick: function () {
+            api.close();
+            ui.confirm({
+              title: 'Delete this criterion?',
+              body: 'It disappears from every list it is assigned to. Passes already tagged with it keep their history.',
+              yes: 'Delete', danger: true
+            }, function () { deleteCustom(crit.id); render(container); });
+          }
+        }, ['Delete this criterion']));
+      }
+    });
+  }
+
+  /* Removing a criterion has to sweep it out of every list that points at
+   * it, or a stale id renders as a blank chip on the practice screen. */
+  function deleteCustom(id) {
+    var state = w.PP.store.get(), i, j, p;
+    for (i = state.settings.customCriteria.length - 1; i >= 0; i--) {
+      if (state.settings.customCriteria[i].id === id) { state.settings.customCriteria.splice(i, 1); }
+    }
+    state.settings.activeCriteria = w.PP.criteria.clean(state.settings.activeCriteria);
+    for (i = 0; i < state.pieces.length; i++) {
+      p = state.pieces[i];
+      if (p.criteria) { p.criteria = w.PP.criteria.clean(p.criteria); }
+      for (j = 0; j < p.sections.length; j++) {
+        if (p.sections[j].criteria) { p.sections[j].criteria = w.PP.criteria.clean(p.sections[j].criteria); }
+      }
+    }
+    w.PP.store.save();
+  }
+
+  /* ---- the assignment picker ----------------------------------------- */
+  /* Used by both the piece sheet and the section sheet. `inheritLabel` is
+   * the wording for falling back to the level above. */
+  function criteriaPicker(opts, onSave) {
+    ui.sheet(function (box, api) {
+      var chosen = {}, i;
+      for (i = 0; i < (opts.selected || []).length; i++) { chosen[opts.selected[i]] = true; }
+
+      box.appendChild(el('h2', { text: opts.title }));
+      box.appendChild(el('p', { class: 'tiny muted', text: opts.blurb }));
+      if (opts.inheritedPreview) {
+        box.appendChild(el('p', { class: 'tiny muted', text: 'Right now it uses: ' + opts.inheritedPreview }));
+      }
+
+      var counter = el('p', { class: 'tiny', style: 'font-weight:600' });
+      box.appendChild(counter);
+      function refresh() {
+        var n = keysOf(chosen).length;
+        counter.textContent = n
+          ? n + (n === 1 ? ' criterion' : ' criteria') + ' chosen' +
+            (n > 8 ? ' — that is a lot of chips for one pass' : '')
+          : 'Nothing chosen yet — ' + opts.inheritLabel.toLowerCase();
+      }
+      refresh();
+
+      var groups = w.PP.criteria.GROUPS, gi, list, ci, wrap;
+      for (gi = 0; gi < groups.length; gi++) {
+        list = w.PP.criteria.inGroup(groups[gi].id);
+        if (!list.length) { continue; }
+        box.appendChild(el('div', { class: 'chip-group-title', text: groups[gi].emoji + '  ' + groups[gi].label }));
+        wrap = el('div', { class: 'chips' });
+        for (ci = 0; ci < list.length; ci++) { wrap.appendChild(pickChip(list[ci], chosen, refresh)); }
+        box.appendChild(wrap);
+      }
+
+      box.appendChild(el('div', { class: 'btn-row sheet-actions' }, [
+        el('button', { class: 'btn ghost', onclick: function () { api.close(); onSave(null); } }, [opts.inheritLabel]),
+        el('button', { class: 'btn', onclick: function () { api.close(); onSave(keysOf(chosen)); } }, ['Save list'])
+      ]));
+    });
+  }
+
+  function pickChip(crit, chosen, refresh) {
+    var btn = el('button', { class: 'chip' + (chosen[crit.id] ? ' on' : '') }, [
+      el('span', { class: 'e', text: crit.emoji }),
+      el('span', { class: 'l', text: crit.label }),
+      el('span', { class: 'h', text: crit.hint })
+    ]);
+    btn.addEventListener('click', function () {
+      if (chosen[crit.id]) { delete chosen[crit.id]; btn.className = 'chip'; }
+      else { chosen[crit.id] = true; btn.className = 'chip on'; }
+      refresh();
+    }, false);
+    return btn;
+  }
+
+  function keysOf(obj) {
+    var out = [], k;
+    for (k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) { out.push(k); } }
+    return out;
+  }
+
+  function previewOf(ids) {
+    var names = [], i;
+    for (i = 0; i < ids.length && i < 4; i++) { names.push(w.PP.criteria.label(ids[i])); }
+    return names.join(', ') + (ids.length > 4 ? ' and ' + (ids.length - 4) + ' more' : '');
+  }
+
+  /* A one-line summary of what a piece or section will actually show. */
+  function assignmentSummary(list, inheritedCount, inheritWord) {
+    if (!w.PP.criteria.isAssigned(list)) {
+      return 'Inherits ' + inheritWord + ' (' + inheritedCount + ')';
+    }
+    var names = [], i;
+    for (i = 0; i < list.length && i < 3; i++) { names.push(w.PP.criteria.label(list[i])); }
+    return list.length + ' chosen · ' + names.join(', ') + (list.length > 3 ? '…' : '');
   }
 
   /* ---- settings ------------------------------------------------------ */

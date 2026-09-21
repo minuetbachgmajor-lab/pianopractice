@@ -52,29 +52,52 @@ Safari cache takes the history with it**, so take a backup from
 - **Reports** — what she catches most, tries-per-streak by week, a practice
   calendar, the hardest bits, and recent score cards. Every chart has a
   "show the numbers" table.
-- **Pieces** — add pieces and bits, set a target tempo and a note for her.
-- **Criteria** — switch the chips on and off. Start with a handful.
+- **Pieces** — add pieces and bits, set a target tempo and a note for her, and
+  choose which criteria each piece or each bit is working on.
+- **Library** — all 49 criteria, which are in the default set, and a button to
+  write your own.
 - **Data** — CSV of every pass, CSV of every streak, and a full JSON backup.
 
-## The criteria
+## The criteria library
 
-Twenty-one things she can tag, grouped the way a teacher listens. Eleven are on
-by default; the subtler ones wait until her ear is ready for them.
+Forty-nine criteria across nine groups — and, crucially, **the parent assigns a
+handful of them to each piece or each section**, so a pass is judged on what
+that passage is actually working on. A section whose note says *"2 hands, soft
+tone, rotate wrist, breathe each measure"* gets exactly those four chips and
+nothing else.
 
-| Group | On by default | Also available |
-|---|---|---|
-| 🎼 Notes & Rhythm | wrong note, wrong rhythm | held it wrong |
-| 🤲 Hands & Body | wrong finger, flat fingers | slouchy sitting, looked at my hands |
-| 🌊 Flow | I stopped, hesitated, started over | memory slip |
-| 🎨 Sound & Style | forgot loud/soft, slurs & staccato, harsh or bangy | too timid, tune got buried, no shape, pedal was muddy |
-| ⏱️ Tempo | rushed | dragged, bumpy pulse |
+| Group | Covers |
+|---|---|
+| 🎼 Notes & Rhythm | wrong note, wrong rhythm, note lengths, accidentals, rests, counting out loud |
+| ✋ Fingers & Hands | fingering, hand shape, thumb-under, tension, hands lining up, hand independence |
+| 🌊 Flow & Memory | stopping, hesitating, restarting, memory slips, losing your place |
+| 🎨 Tone & Touch | harsh tone, **soft tone**, timid tone, singing melody, even touch, arm weight |
+| 🎯 Articulation | **legato**, **staccato**, slur endings, accents, phrase endings |
+| 💨 Breath & Phrasing | **breathing**, breath placement, phrase shape, dynamics, dynamic range |
+| 🤸 Gesture & Body | **wrist rotation**, follow-through, lifting, posture, shoulders, eyes, bench |
+| ⏱️ Tempo | rushing, dragging, pulse, starting tempo, holding the practice speed |
+| ⚖️ Balance & Pedal | melody balance, voicing, pedal clarity, pedal timing |
 
-The split follows how practice quality is usually assessed: accuracy (notes,
-rhythm, fingering) before control (tempo, dynamics, articulation, tone) before
-musicianship (balance, phrasing, pedalling), with continuity — stopping,
-hesitating, restarting — tracked throughout, because fluency is what performing
-actually tests. Posture and eyes-on-the-music are habit items rather than
-sound items, which is why they start switched off.
+**Assignment resolves in three levels**, most specific first:
+
+1. the section's own list, if it has one
+2. otherwise the piece's list
+3. otherwise the default set in `Grown-ups → Library`
+
+An empty list always means *inherit*, never *nothing to tag* — a section with no
+criteria would make the Oops button useless. Whatever is assigned, the rest of
+the library stays one tap away behind **"Something else?"**, so a focused list
+never stops her naming something real.
+
+Parents can also **write their own criteria** (`Grown-ups → Library → Write my
+own criterion`). Custom ones behave exactly like built-ins: assignable, taggable,
+charted, and exported under their own names.
+
+Ordering follows how practice quality is usually assessed — accuracy (notes,
+rhythm, fingering) before control (tone, articulation, tempo, dynamics) before
+musicianship (phrasing, balance, pedalling) — with flow tracked throughout,
+because fluency is what performing actually tests. Eleven basics ship switched on
+as the default set; the subtler ones wait until a teacher asks for them.
 
 ## The data
 
@@ -113,7 +136,7 @@ index.html            app shell, scripts in load order
 manifest.webmanifest  PWA manifest (iOS 12 reads the <meta> tags instead)
 sw.js                 offline cache — bump CACHE when shell files change
 css/app.css           all styles, light and dark
-js/criteria.js        the 21 criteria and their groups
+js/criteria.js        the 49-criterion library, groups and assignment rules
 js/store.js           localStorage, versioned state, repair-on-load
 js/engine.js          the three-in-a-row rule, runs, coach, undo
 js/stats.js           report aggregations and CSV export

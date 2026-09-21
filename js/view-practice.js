@@ -33,7 +33,24 @@
     dynamics:    'Sing the loud and soft bits first, then play them.',
     articulation:'Say "smooooth" or "bounce" as you play each phrase.',
     tone_harsh:  'Drop into the key with a heavy arm and a soft hand. Warm, not bangy.',
-    memory_slip: 'Look at the music for this one. Memory comes after the fingers know it.'
+    memory_slip: 'Look at the music for this one. Memory comes after the fingers know it.',
+    soft_tone:   'Rest your finger on the key first, then press. No hitting from above.',
+    singing:     'Sing the melody out loud, then play it the way you sang it.',
+    legato:      'Keep the first finger down until the next one is already sounding.',
+    staccato:    'Bounce off the key like it is hot. Short, light, from the wrist.',
+    slur_end:    'Lean into the first note of the slur and float off the last one.',
+    breath:      'Mark the breaths in pencil, then breathe out loud as you play.',
+    breath_place:'Find where the phrase ends first. Breathe there and nowhere else.',
+    phrase_shape:'Play the phrase getting louder to the middle and softer to the end.',
+    wrist_rotate:'Let the wrist roll side to side, like turning a doorknob gently.',
+    arm_circle:  'Draw a little circle with the elbow as the phrase ends.',
+    lift:        'Float the hand up off the keys at the end, like a bird taking off.',
+    hands_together: 'Play just the first chord of each bar, hands together, until they land as one.',
+    tense_hands: 'Shake the hands out, then play again with floppy wrists.',
+    start_tempo: 'Find the hardest bar, play that first, and start the whole thing at that speed.',
+    tempo_hold:  'Count the first bar out loud before you start, and keep that pulse.',
+    balance:     'Play the melody hand alone, then add the other hand at half its volume.',
+    pedal:       'Change the pedal just after your hands land, not with them.'
   };
 
   var state, sectionId, mount, coachDismissedRun;
@@ -140,23 +157,33 @@
   function onOops() {
     var chosen = {};
     ui.sheet(function (box, api) {
-      box.appendChild(el('h2', { text: 'What happened?' }));
-      box.appendChild(el('p', { class: 'muted tiny', text: 'Tap everything you noticed. You can tap none if you are not sure.' }));
+      var assigned = w.PP.criteria.resolveFor(state, sectionId);
+      var source = w.PP.criteria.sourceFor(state, sectionId);
 
-      var groups = w.PP.criteria.GROUPS, gi, ci, c, list, chipsWrap, any;
-      for (gi = 0; gi < groups.length; gi++) {
-        list = activeIn(groups[gi].id);
-        if (!list.length) { continue; }
-        box.appendChild(el('div', { class: 'chip-group-title', text: groups[gi].emoji + '  ' + groups[gi].label }));
-        chipsWrap = el('div', { class: 'chips' });
-        for (ci = 0; ci < list.length; ci++) {
-          chipsWrap.appendChild(makeChip(list[ci], chosen));
-        }
-        box.appendChild(chipsWrap);
-        any = true;
+      box.appendChild(el('h2', { text: 'What happened?' }));
+      box.appendChild(el('p', { class: 'muted tiny', text:
+        'Tap everything you noticed. You can tap none if you are not sure.' }));
+
+      if (!assigned.length) {
+        box.appendChild(el('p', { class: 'muted', text:
+          'Nothing is set up to listen for yet. A grown-up can choose what this bit is working on.' }));
       }
-      if (!any) {
-        box.appendChild(el('p', { class: 'muted', text: 'No criteria are switched on. A grown-up can turn some on in the parent area.' }));
+      box.appendChild(chipSection(assigned, chosen,
+        source === 'default' ? null : 'Working on', assigned.length <= 6));
+
+      /* The rest of the library stays one tap away: the assigned list keeps
+       * her focused, but never stops her naming something real. */
+      var rest = restOfLibrary(assigned);
+      var more = el('div');
+      box.appendChild(more);
+      if (rest.length) {
+        var moreBtn = el('button', { class: 'linkish', style: 'margin-top:12px' },
+          ['Something else? (' + rest.length + ' more)']);
+        moreBtn.addEventListener('click', function () {
+          if (moreBtn.parentNode) { moreBtn.parentNode.removeChild(moreBtn); }
+          more.appendChild(chipSection(rest, chosen, 'Everything else'));
+        }, false);
+        box.appendChild(moreBtn);
       }
 
       var note = el('input', { type: 'text', placeholder: 'Anything else? (optional)' });
@@ -175,6 +202,51 @@
     });
   }
 
+  /* Renders a set of criteria ids in library order. A short assigned list
+   * drops the group headings — four chips under four headings is mostly
+   * whitespace, and this sheet has to fit on one screen at the piano. */
+  function chipSection(ids, chosen, heading, flat) {
+    var wrap = el('div'), groups = w.PP.criteria.GROUPS, gi, ci, list, chipsWrap;
+    if (heading && ids.length) {
+      wrap.appendChild(el('div', { class: 'chip-group-title', style: 'margin-top:14px', text: heading }));
+    }
+    if (flat) {
+      chipsWrap = el('div', { class: 'chips' });
+      for (gi = 0; gi < groups.length; gi++) {
+        list = idsInGroup(ids, groups[gi].id);
+        for (ci = 0; ci < list.length; ci++) { chipsWrap.appendChild(makeChip(list[ci], chosen)); }
+      }
+      wrap.appendChild(chipsWrap);
+      return wrap;
+    }
+    for (gi = 0; gi < groups.length; gi++) {
+      list = idsInGroup(ids, groups[gi].id);
+      if (!list.length) { continue; }
+      wrap.appendChild(el('div', { class: 'chip-group-title', text: groups[gi].emoji + '  ' + groups[gi].label }));
+      chipsWrap = el('div', { class: 'chips' });
+      for (ci = 0; ci < list.length; ci++) { chipsWrap.appendChild(makeChip(list[ci], chosen)); }
+      wrap.appendChild(chipsWrap);
+    }
+    return wrap;
+  }
+
+  function idsInGroup(ids, groupId) {
+    var out = [], i, c;
+    for (i = 0; i < ids.length; i++) {
+      c = w.PP.criteria.get(ids[i]);
+      if (c && c.group === groupId) { out.push(c); }
+    }
+    return out;
+  }
+
+  function restOfLibrary(assigned) {
+    var all = w.PP.criteria.library(), out = [], i;
+    for (i = 0; i < all.length; i++) {
+      if (assigned.indexOf(all[i].id) < 0) { out.push(all[i].id); }
+    }
+    return out;
+  }
+
   function makeChip(crit, chosen) {
     var btn = el('button', { class: 'chip' }, [
       el('span', { class: 'e', text: crit.emoji }),
@@ -191,14 +263,6 @@
   function keys(obj) {
     var out = [], k;
     for (k in obj) { if (Object.prototype.hasOwnProperty.call(obj, k)) { out.push(k); } }
-    return out;
-  }
-
-  function activeIn(groupId) {
-    var out = [], all = w.PP.criteria.ALL, i, active = state.settings.activeCriteria;
-    for (i = 0; i < all.length; i++) {
-      if (all[i].group === groupId && active.indexOf(all[i].id) >= 0) { out.push(all[i]); }
-    }
     return out;
   }
 

@@ -27,11 +27,11 @@
     var now = Date.now();
     return [{
       id: uid('pc'), name: 'Minuet in G major', composer: 'Bach', emoji: '🎼',
-      createdAt: now, archived: false,
+      createdAt: now, archived: false, criteria: null,
       sections: [
-        { id: uid('sc'), label: 'Section A (m. 1–8)',  notes: 'Hands together, watch the LH skips', tempo: 72, archived: false, createdAt: now, auto: false, parentId: null },
-        { id: uid('sc'), label: 'Section B (m. 9–16)', notes: 'The tricky trill bar',                tempo: 72, archived: false, createdAt: now, auto: false, parentId: null },
-        { id: uid('sc'), label: 'Whole piece',         notes: 'Start to finish, no stopping',        tempo: 84, archived: false, createdAt: now, auto: false, parentId: null }
+        { id: uid('sc'), label: 'Section A (m. 1–8)',  notes: 'Hands together, watch the LH skips', tempo: 72, archived: false, createdAt: now, auto: false, parentId: null, criteria: null },
+        { id: uid('sc'), label: 'Section B (m. 9–16)', notes: 'The tricky trill bar',                tempo: 72, archived: false, createdAt: now, auto: false, parentId: null, criteria: null },
+        { id: uid('sc'), label: 'Whole piece',         notes: 'Start to finish, no stopping',        tempo: 84, archived: false, createdAt: now, auto: false, parentId: null, criteria: null }
       ]
     }];
   }
@@ -46,6 +46,7 @@
         pin: pinHash('1234'),
         pinIsDefault: true,
         activeCriteria: w.PP.criteria.defaultActive(),
+        customCriteria: [],
         sound: true
       },
       pieces: seedPieces(),
@@ -78,8 +79,18 @@
     for (i = 0; i < keys.length; i++) {
       if (!Array.isArray(state[keys[i]])) { state[keys[i]] = []; }
     }
+    if (!Array.isArray(state.settings.customCriteria)) { state.settings.customCriteria = []; }
+    /* A saved file from before criteria became assignable has no `criteria`
+     * on its pieces or sections; null means "inherit", which is exactly the
+     * old behaviour, so those files upgrade silently. */
     for (i = 0; i < state.pieces.length; i++) {
       if (!Array.isArray(state.pieces[i].sections)) { state.pieces[i].sections = []; }
+      if (!Array.isArray(state.pieces[i].criteria)) { state.pieces[i].criteria = null; }
+      for (var si = 0; si < state.pieces[i].sections.length; si++) {
+        if (!Array.isArray(state.pieces[i].sections[si].criteria)) {
+          state.pieces[i].sections[si].criteria = null;
+        }
+      }
     }
     return state;
   }

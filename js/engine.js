@@ -224,7 +224,9 @@
       archived: false,
       createdAt: Date.now(),
       auto: true,
-      parentId: parent.id
+      parentId: parent.id,
+      /* a smaller slice of the same passage is working on the same things */
+      criteria: parent.criteria ? parent.criteria.slice() : null
     };
     found.piece.sections.splice(found.piece.sections.indexOf(parent) + n, 0, child);
     logCoach(state, sectionId, 'shrink', child.id);
