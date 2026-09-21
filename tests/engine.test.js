@@ -307,4 +307,85 @@ test('an old save file with no criteria fields still opens', () => {
   assert(Array.isArray(fixed.settings.customCriteria), 'custom list created');
 });
 
+test('a bit with no goal of its own uses the global default', () => {
+  const { PP, state, section } = setup();
+  state.settings.streakGoal = 4;
+  eq(PP.engine.goalFor(state, section.id), 4);
+  eq(PP.engine.goalSource(state, section.id), 'default');
+});
+
+test('a piece goal overrides the default for all its bits', () => {
+  const { PP, state, section } = setup();
+  state.settings.streakGoal = 3;
+  state.pieces[0].streakGoal = 5;
+  eq(PP.engine.goalFor(state, section.id), 5);
+  eq(PP.engine.goalSource(state, section.id), 'piece');
+});
+
+test('a bit goal overrides its piece goal', () => {
+  const { PP, state, section } = setup();
+  state.pieces[0].streakGoal = 5;
+  section.streakGoal = 3;
+  eq(PP.engine.goalFor(state, section.id), 3);
+  eq(PP.engine.goalSource(state, section.id), 'section');
+  /* the sibling bit still runs the piece goal */
+  eq(PP.engine.goalFor(state, state.pieces[0].sections[1].id), 5);
+});
+
+test('a five-in-a-row bit needs all five', () => {
+  const { PP, state, section } = setup();
+  section.streakGoal = 5;
+  let fx;
+  for (let i = 0; i < 4; i++) { fx = PP.engine.recordPass(state, { sectionId: section.id, ok: true }); }
+  assert(!fx.completed, 'four is not enough');
+  eq(fx.goal, 5, 'the run reports its own goal');
+  fx = PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  assert(fx.completed, 'five clears it');
+  eq(state.runs[0].goal, 5);
+});
+
+test('changing the goal mid-streak does not move the finish line', () => {
+  const { PP, state, section } = setup();
+  section.streakGoal = 3;
+  PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  section.streakGoal = 5;               /* parent edits it mid-run */
+  PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  const fx = PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  assert(fx.completed, 'the run she started keeps the goal it began with');
+  eq(state.runs[0].goal, 3);
+  /* the next run picks up the new goal */
+  const next = PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  eq(next.goal, 5);
+});
+
+test('a goal change between streaks takes effect at once', () => {
+  const { PP, state, section } = setup();
+  section.streakGoal = 3;
+  PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  PP.engine.recordPass(state, { sectionId: section.id, ok: false, tags: ['rushed'] });
+  eq(state.runs[0].streak, 0, 'back to zero');
+  section.streakGoal = 5;               /* parent raises it while she is at zero */
+  const fx = PP.engine.recordPass(state, { sectionId: section.id, ok: true });
+  eq(fx.goal, 5, 'nothing was in flight, so the new goal applies now');
+});
+
+test('a shrunk bit keeps its parent goal', () => {
+  const { PP, state, section } = setup();
+  section.streakGoal = 5;
+  const child = PP.engine.shrinkSection(state, section.id);
+  eq(PP.engine.goalFor(state, child.id), 5);
+});
+
+test('an old save file with no goal fields still opens', () => {
+  const { PP } = setup();
+  const fixed = PP.store.normalize({
+    v: 1, settings: { streakGoal: 3, activeCriteria: ['wrong_note'] },
+    pieces: [{ id: 'p1', name: 'X', sections: [{ id: 's1', label: 'A' }] }],
+    passes: [], runs: [], sessions: [], stickers: [], badges: [], coachEvents: []
+  });
+  eq(fixed.pieces[0].streakGoal, null);
+  eq(fixed.pieces[0].sections[0].streakGoal, null);
+  eq(PP.engine.goalFor(fixed, 's1'), 3, 'falls back to the global setting');
+});
+
 report();

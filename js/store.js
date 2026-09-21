@@ -27,7 +27,7 @@
     var now = Date.now();
     return [{
       id: uid('pc'), name: 'Minuet in G major', composer: 'Bach', emoji: '🎼',
-      createdAt: now, archived: false, criteria: null,
+      createdAt: now, archived: false, criteria: null, streakGoal: null,
       sections: [
         { id: uid('sc'), label: 'Section A (m. 1–8)',  notes: 'Hands together, watch the LH skips', tempo: 72, archived: false, createdAt: now, auto: false, parentId: null, criteria: null },
         { id: uid('sc'), label: 'Section B (m. 9–16)', notes: 'The tricky trill bar',                tempo: 72, archived: false, createdAt: now, auto: false, parentId: null, criteria: null },
@@ -86,9 +86,13 @@
     for (i = 0; i < state.pieces.length; i++) {
       if (!Array.isArray(state.pieces[i].sections)) { state.pieces[i].sections = []; }
       if (!Array.isArray(state.pieces[i].criteria)) { state.pieces[i].criteria = null; }
+      if (typeof state.pieces[i].streakGoal !== 'number') { state.pieces[i].streakGoal = null; }
       for (var si = 0; si < state.pieces[i].sections.length; si++) {
         if (!Array.isArray(state.pieces[i].sections[si].criteria)) {
           state.pieces[i].sections[si].criteria = null;
+        }
+        if (typeof state.pieces[i].sections[si].streakGoal !== 'number') {
+          state.pieces[i].sections[si].streakGoal = null;
         }
       }
     }

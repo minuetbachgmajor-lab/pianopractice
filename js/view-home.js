@@ -137,7 +137,7 @@
   function sectionRow(state, section) {
     var done = w.PP.engine.clearedToday(state, section.id);
     var run = w.PP.engine.activeRun(state, section.id);
-    var goal = state.settings.streakGoal;
+    var goal = (run && run.streak > 0) ? run.goal : w.PP.engine.goalFor(state, section.id);
     var meta, status;
 
     if (done) {
@@ -148,7 +148,7 @@
       meta = run.streak + ' of ' + goal + ' stars · ' + ui.plural(run.passCount, 'try', 'tries') + ' so far';
     } else {
       status = '▶️';
-      meta = lastClearedText(state, section.id);
+      meta = goal + ' in a row · ' + lastClearedText(state, section.id);
     }
 
     return el('button', {

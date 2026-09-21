@@ -4,6 +4,9 @@ A practice book for one eight-year-old pianist, built around one rule:
 
 > **Three perfect passes in a row clears the bit. One mistake and the count goes back to zero.**
 
+Three is the default; any piece or any single bit can ask for two, four or five
+instead — three for the bars that are still hard, five for the run-through.
+
 The twist is who decides. After every pass *she* judges it — perfect, or
 something slipped — and if something slipped, she taps what she heard: wrong
 note, wrong finger, rushed, harsh, stopped. Nothing here scolds her, and no
@@ -34,8 +37,8 @@ Safari cache takes the history with it**, so take a backup from
 
 **Her side**
 
-- **Pieces** — each piece holds named bits ("bars 9–16, hands together"). She
-  picks one and plays it.
+- **Pieces** — each piece holds named bits ("bars 9–16, hands together"), each
+  with its own target and its own criteria. She picks one and plays it.
 - **Perfect / Oops** — two big buttons. Perfect lights a star; Oops opens the
   criteria chips and sends the stars back to zero.
 - **Today's score card** — every pass, with the time and the tags, right on
@@ -53,7 +56,7 @@ Safari cache takes the history with it**, so take a backup from
   calendar, the hardest bits, and recent score cards. Every chart has a
   "show the numbers" table.
 - **Pieces** — add pieces and bits, set a target tempo and a note for her, and
-  choose which criteria each piece or each bit is working on.
+  choose how many in a row clears it and which criteria it is working on.
 - **Library** — all 49 criteria, which are in the default set, and a button to
   write your own.
 - **Data** — CSV of every pass, CSV of every streak, and a full JSON backup.
@@ -99,6 +102,16 @@ musicianship (phrasing, balance, pedalling) — with flow tracked throughout,
 because fluency is what performing actually tests. Eleven basics ship switched on
 as the default set; the subtler ones wait until a teacher asks for them.
 
+## How many in a row
+
+`Grown-ups → Settings` sets the default. A piece or a single bit can override it
+in `Grown-ups → Pieces`, resolving the same three ways criteria do: the bit's own
+number, else the piece's, else the default.
+
+A streak already underway keeps the number it started with, so a change never
+moves a finish line she is running towards. The moment she is back at zero —
+between streaks, or straight after a mistake — the new number applies.
+
 ## The data
 
 `Grown-ups → Data` exports three things. On iPadOS 12 a web app cannot download
@@ -138,7 +151,7 @@ sw.js                 offline cache — bump CACHE when shell files change
 css/app.css           all styles, light and dark
 js/criteria.js        the 49-criterion library, groups and assignment rules
 js/store.js           localStorage, versioned state, repair-on-load
-js/engine.js          the three-in-a-row rule, runs, coach, undo
+js/engine.js          the N-in-a-row rule, goal resolution, runs, coach, undo
 js/stats.js           report aggregations and CSV export
 js/badges.js          badge rules (pure functions of state)
 js/charts.js          hand-rolled bars, line and calendar

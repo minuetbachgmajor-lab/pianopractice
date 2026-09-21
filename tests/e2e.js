@@ -243,6 +243,40 @@ function assert(cond, msg) { if (!cond) { throw new Error(msg); } }
     await shot('11-library');
   });
 
+  await step('a bit can be set to five in a row', async () => {
+    await page.click('.tabbar button:nth-child(3)');
+    await page.click('.tabs button:nth-child(2)');           /* Pieces */
+    await page.waitForSelector('.toggle-row .linkish');
+    await page.click('.toggle-row .linkish');                /* edit the first bit */
+    await page.waitForSelector('.sheet select');
+    await page.selectOption('.sheet select', '5');
+    await page.click('.sheet >> text=Save');
+    await page.waitForSelector('text=5 in a row (set here)');
+  });
+
+  await step('the practice screen then shows five stars', async () => {
+    await page.click('.tabbar button:nth-child(1)');
+    await page.click('.section-row');
+    await page.waitForSelector('.judge');
+    const stars = await page.$$('.star');
+    assert(stars.length === 5, 'five stars, got ' + stars.length);
+    assert(await page.isVisible('.stars.many'), 'stars shrink so five fit a phone');
+    const text = await page.textContent('#app');
+    assert(text.includes('5 perfect in a row clears this bit'), 'the goal is stated on screen');
+    await shot('12-five-in-a-row');
+  });
+
+  await step('four perfect passes do not clear a five-in-a-row bit', async () => {
+    for (let i = 0; i < 4; i++) { await page.click('.judge .perfect'); }
+    assert(!(await page.$('.scorecard')), 'not cleared at four');
+    assert((await page.$$('.star.lit')).length === 4, 'four lit');
+    await page.click('.judge .perfect');
+    await page.waitForSelector('.scorecard');
+    const card = await page.textContent('.scorecard');
+    assert(card.includes('5'), 'the score card records a goal of five');
+    await page.click('.center-modal >> text=My pieces');
+  });
+
   await step('the practice data survives a reload', async () => {
     await page.goto(base, { waitUntil: 'load' });
     await page.waitForSelector('.section-row');

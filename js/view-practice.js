@@ -77,7 +77,8 @@
 
     var piece = found.piece, section = found.section;
     var run = w.PP.engine.activeRun(state, sectionId);
-    var goal = state.settings.streakGoal;
+    /* once she has stars on the board the goal she started with stands */
+    var goal = (run && run.streak > 0) ? run.goal : w.PP.engine.goalFor(state, sectionId);
     var streak = run ? run.streak : 0;
 
     /* header */
@@ -96,7 +97,8 @@
     }
 
     /* the streak */
-    var starsWrap = el('div', { class: 'stars' });
+    /* five 62px stars do not fit a phone, so they shrink past three */
+    var starsWrap = el('div', { class: 'stars' + (goal >= 4 ? ' many' : '') });
     var i, star;
     for (i = 0; i < goal; i++) {
       star = el('div', { class: 'star' + (i < streak ? ' lit' : ''), text: i < streak ? '⭐' : '☆' });
@@ -105,14 +107,15 @@
     var caption = streak === 0
       ? (run && run.passCount ? 'Back to zero. Ready when you are.' : 'Play it once, then tell me how it went.')
       : (streak === goal - 1 ? 'One more perfect one!' : streak + ' in a row! Keep going.');
+    var goalLine = goal + ' perfect in a row clears this bit.';
 
     mount.appendChild(el('div', { class: 'card' }, [
       el('div', { class: 'streak-wrap' }, [
         starsWrap,
         el('div', { class: 'streak-caption', text: caption }),
         el('div', { class: 'streak-sub', text: run && run.passCount
-          ? ui.plural(run.passCount, 'try', 'tries') + ' this time'
-          : 'Three perfect in a row clears this bit.' })
+          ? ui.plural(run.passCount, 'try', 'tries') + ' this time · ' + goalLine
+          : goalLine })
       ]),
       el('div', { class: 'judge', style: 'margin-top:14px' }, [
         el('button', { class: 'perfect', onclick: onPerfect }, [
@@ -278,8 +281,9 @@
   function shakeStars() {
     var wrap = mount.querySelector('.stars');
     if (!wrap) { return; }
-    wrap.className = 'stars shake';
-    setTimeout(function () { if (wrap) { wrap.className = 'stars'; } }, 500);
+    var base = wrap.className;
+    wrap.className = base + ' shake';
+    setTimeout(function () { if (wrap) { wrap.className = base; } }, 500);
   }
 
   function scrollToCoach() {

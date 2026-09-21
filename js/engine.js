@@ -28,6 +28,25 @@
     return s;
   }
 
+  /* How many perfect passes in a row clear this bit: the bit's own goal,
+   * else its piece's, else the global setting. Mirrors how criteria
+   * resolve, so one idea covers both. */
+  function goalFor(state, sectionId) {
+    var found = w.PP.store.findSection(state, sectionId), n;
+    if (found) {
+      n = found.section.streakGoal || found.piece.streakGoal;
+      if (n > 0) { return n; }
+    }
+    return state.settings.streakGoal || 3;
+  }
+
+  function goalSource(state, sectionId) {
+    var found = w.PP.store.findSection(state, sectionId);
+    if (found && found.section.streakGoal > 0) { return 'section'; }
+    if (found && found.piece.streakGoal > 0) { return 'piece'; }
+    return 'default';
+  }
+
   function activeRun(state, sectionId) {
     var i;
     for (i = state.runs.length - 1; i >= 0; i--) {
@@ -53,7 +72,8 @@
       tagCounts: {},
       ms: 0,
       stickerId: null,
-      goal: state.settings.streakGoal
+      /* refreshed on every reset, frozen once she has stars on the board */
+      goal: goalFor(state, sectionId)
     };
     state.runs.push(run);
     return run;
@@ -77,6 +97,12 @@
     var i, t;
 
     session.lastActivityAt = now;
+
+    /* Re-read the goal whenever she is starting from zero. A change a
+     * parent makes between streaks takes effect at once; a change made
+     * while she is two stars in does not move the finish line. */
+    if (run.streak === 0) { run.goal = goalFor(state, opts.sectionId); }
+
     run.passCount += 1;
 
     if (opts.ok) {
@@ -226,7 +252,8 @@
       auto: true,
       parentId: parent.id,
       /* a smaller slice of the same passage is working on the same things */
-      criteria: parent.criteria ? parent.criteria.slice() : null
+      criteria: parent.criteria ? parent.criteria.slice() : null,
+      streakGoal: parent.streakGoal || null
     };
     found.piece.sections.splice(found.piece.sections.indexOf(parent) + n, 0, child);
     logCoach(state, sectionId, 'shrink', child.id);
@@ -246,6 +273,8 @@
     SESSION_GAP_MS: SESSION_GAP_MS,
     MAX_GAP_MS: MAX_GAP_MS,
     ensureSession: ensureSession,
+    goalFor: goalFor,
+    goalSource: goalSource,
     activeRun: activeRun,
     recordPass: recordPass,
     undoLastPass: undoLastPass,

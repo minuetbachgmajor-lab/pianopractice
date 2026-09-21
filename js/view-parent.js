@@ -278,6 +278,9 @@
         el('div', { class: 'tiny muted', text: (section.tempo ? '♩ = ' + section.tempo + ' · ' : '') +
           (section.notes || 'no note') }),
         el('div', { class: 'tiny', style: 'color:var(--grape)', text:
+          '⭐ ' + w.PP.engine.goalFor(w.PP.store.get(), section.id) + ' in a row' +
+          (w.PP.engine.goalSource(w.PP.store.get(), section.id) === 'default' ? '' : ' (set here)') }),
+        el('div', { class: 'tiny', style: 'color:var(--grape)', text:
           '🏷 ' + (w.PP.criteria.isAssigned(section.criteria)
             ? section.criteria.length + ' own criteria'
             : (w.PP.criteria.isAssigned(piece.criteria) ? 'piece list' : 'default list')) })
@@ -293,7 +296,7 @@
         var state = w.PP.store.get();
         state.pieces.push({
           id: w.PP.store.uid('pc'), name: name.trim(), composer: '', emoji: '🎵',
-          createdAt: Date.now(), archived: false, criteria: null, sections: []
+          createdAt: Date.now(), archived: false, criteria: null, streakGoal: null, sections: []
         });
         w.PP.store.save();
         render(container);
@@ -313,6 +316,14 @@
         box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Emoji' }), emoji]));
 
         var state = w.PP.store.get();
+        box.appendChild(goalRow({
+          label: 'Cleared after',
+          value: piece.streakGoal,
+          inheritLabel: 'the default',
+          inheritValue: state.settings.streakGoal,
+          onChange: function (n) { piece.streakGoal = n; w.PP.store.save(); }
+        }));
+
         box.appendChild(el('div', { class: 'toggle-row' }, [
           el('div', { class: 'grow' }, [
             el('div', { style: 'font-weight:600;font-size:15px', text: 'Criteria for this piece' }),
@@ -386,6 +397,17 @@
       box.appendChild(el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Target tempo (♩ per minute)' }), tempo]));
 
       if (section) {
+        var stg = w.PP.store.get();
+        box.appendChild(goalRow({
+          label: 'Cleared after',
+          value: section.streakGoal,
+          inheritLabel: piece.streakGoal > 0 ? 'the piece' : 'the default',
+          inheritValue: piece.streakGoal > 0 ? piece.streakGoal : stg.settings.streakGoal,
+          onChange: function (n) { section.streakGoal = n; w.PP.store.save(); }
+        }));
+      }
+
+      if (section) {
         var st = w.PP.store.get();
         var inheritCount = w.PP.criteria.isAssigned(piece.criteria)
           ? piece.criteria.length : st.settings.activeCriteria.length;
@@ -432,7 +454,7 @@
               piece.sections.push({
                 id: w.PP.store.uid('sc'), label: label.value.trim(), notes: notes.value.trim(),
                 tempo: isNaN(t) ? null : t, archived: false, createdAt: Date.now(),
-                auto: false, parentId: null, criteria: null
+                auto: false, parentId: null, criteria: null, streakGoal: null
               });
             }
             w.PP.store.save(); api.close(); render(container);
@@ -669,6 +691,28 @@
     return out;
   }
 
+  /* "Cleared after N in a row", with an explicit inherit option. */
+  function goalRow(opts) {
+    var sel = el('select');
+    sel.appendChild(option('', 'Inherit — ' + opts.inheritLabel + ' (' + opts.inheritValue + ')', !(opts.value > 0)));
+    [2, 3, 4, 5].forEach(function (n) {
+      sel.appendChild(option(String(n), n + ' perfect in a row', opts.value === n));
+    });
+    sel.addEventListener('change', function () {
+      var n = parseInt(sel.value, 10);
+      opts.onChange(isNaN(n) ? null : n);
+    }, false);
+    return el('label', { class: 'field' }, [
+      el('span', { class: 'lab', text: opts.label }), sel
+    ]);
+  }
+
+  function option(value, text, selected) {
+    var o = el('option', { value: value, text: text });
+    if (selected) { o.setAttribute('selected', 'selected'); }
+    return o;
+  }
+
   function previewOf(ids) {
     var names = [], i;
     for (i = 0; i < ids.length && i < 4; i++) { names.push(w.PP.criteria.label(ids[i])); }
@@ -700,7 +744,7 @@
     });
     goal.addEventListener('change', function () {
       state.settings.streakGoal = parseInt(goal.value, 10); w.PP.store.save();
-      ui.toast('Runs already in progress keep their old goal.');
+      ui.toast('Streaks already in progress keep their old goal.');
     }, false);
 
     var coach = el('select');
@@ -717,8 +761,11 @@
       el('h2', { text: 'Practice rules' }),
       el('label', { class: 'field' }, [el('span', { class: 'lab', text: 'Her name' }), name]),
       el('label', { class: 'field' }, [
-        el('span', { class: 'lab', text: 'A bit is cleared after' }), goal
+        el('span', { class: 'lab', text: 'A bit is cleared after (default)' }), goal
       ]),
+      el('p', { class: 'tiny muted', text:
+        'Any piece or any single bit can override this in the Pieces tab — three for the ' +
+        'hard bars, five for the run-through.' }),
       el('label', { class: 'field' }, [
         el('span', { class: 'lab', text: 'Coach offers help' }), coach
       ]),

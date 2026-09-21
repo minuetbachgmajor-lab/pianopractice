@@ -551,3 +551,9 @@ input:focus, textarea:focus, select:focus { outline: none; border-color: var(--g
 }
 .heat-legend i { display: inline-block; margin: 0 2px; }
 .heat-legend .tiny { margin: 0 6px; }
+
+/* Four or five stars have to fit a phone as comfortably as three do. */
+.stars.many .star {
+  width: 48px; height: 48px; line-height: 48px;
+  font-size: 24px; margin: 0 4px;
+}
