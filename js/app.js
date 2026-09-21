@@ -113,13 +113,45 @@
       if (h.view !== view || h.arg !== arg) { view = h.view; arg = h.arg; draw(); }
     }, false);
 
-    if ('serviceWorker' in w.navigator) {
-      w.addEventListener('load', function () {
-        w.navigator.serviceWorker.register('sw.js').catch(function () { /* offline is a bonus, not a requirement */ });
-      }, false);
-    }
+    registerWorker();
   }
 
+  /* Keeping the installed app current.
+   *
+   * An installed PWA has no address bar and no reload button, so if a new
+   * build never reaches it there is nothing the person holding the iPad can
+   * do about it. Ask for an update on every launch, and when a new worker
+   * takes over, reload once so the running page is not left on the old
+   * scripts. */
+  function registerWorker() {
+    if (!('serviceWorker' in w.navigator)) { return; }
+    var hadController = !!w.navigator.serviceWorker.controller;
+    var reloaded = false;
+
+    w.addEventListener('load', function () {
+      w.navigator.serviceWorker.register('sw.js').then(function (reg) {
+        try { reg.update(); } catch (e) { /* older Safari */ }
+        if (reg.active) { reg.active.postMessage('version'); }
+      }).catch(function () { /* offline is a bonus, not a requirement */ });
+    }, false);
+
+    w.navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'version') { w.PP.buildVersion = e.data.version; }
+    }, false);
+
+    /* Only reload for a REPLACEMENT worker. On a first install there was no
+     * controller, and reloading then would be a pointless flash. */
+    w.navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController || reloaded) { return; }
+      reloaded = true;
+      w.location.reload();
+    }, false);
+  }
+
+  /* Bumped with each release. If this and the service worker's version
+   * disagree, the page is running older scripts than the worker has — which
+   * is exactly the failure that hid three releases from an installed iPad. */
+  w.PP.appVersion = '2026-09-21.4';
   w.PP.app = { go: go, redraw: draw };
 
   if (d.readyState === 'loading') {

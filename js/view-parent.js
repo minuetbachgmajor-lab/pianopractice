@@ -863,12 +863,60 @@
       }, ['Erase all data'])
     ]));
 
+    body.appendChild(versionCard());
+
     body.appendChild(el('div', { class: 'card' }, [
       el('h3', { text: 'Where the data lives' }),
       el('p', { class: 'tiny muted', text:
         'Everything is stored on this iPad in this app only — nothing is sent anywhere, and there is no account. ' +
         'That also means a cleared Safari cache takes it with it, so take a backup now and then.' })
     ]));
+  }
+
+  /* The diagnostic that was missing when an installed iPad quietly ran a
+   * three-releases-old build. */
+  function versionCard() {
+    var worker = w.PP.buildVersion;
+    var stale = worker && worker !== w.PP.appVersion;
+    return el('div', { class: 'card' }, [
+      el('h2', { text: 'App version' }),
+      el('div', { class: 'toggle-row' }, [
+        el('div', { class: 'grow' }, [
+          el('div', { style: 'font-weight:600;font-size:15px', text: 'Running ' + w.PP.appVersion }),
+          el('div', { class: 'tiny muted', text: worker
+            ? (stale ? '⚠️ The offline copy is ' + worker + ' — tap refresh below.' : 'Offline copy matches. Up to date.')
+            : 'No offline copy yet — this is a browser tab, not the installed app.' })
+        ])
+      ]),
+      el('button', {
+        class: 'btn ghost block', style: 'margin-top:10px', onclick: forceRefresh
+      }, ['🔄 Force refresh the app']),
+      el('p', { class: 'tiny muted', style: 'margin-top:8px', text:
+        'Throws away the saved copy of the app and fetches it fresh. Her pieces, ' +
+        'passes and stickers are stored separately and are not touched.' })
+    ]);
+  }
+
+  function forceRefresh() {
+    ui.toast('Fetching the latest version…');
+    var finish = function () {
+      setTimeout(function () { w.location.reload(); }, 400);
+    };
+    var jobs = [];
+    try {
+      if (w.navigator.serviceWorker && w.navigator.serviceWorker.getRegistrations) {
+        jobs.push(w.navigator.serviceWorker.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }));
+      }
+      if (w.caches && w.caches.keys) {
+        jobs.push(w.caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return w.caches.delete(k); }));
+        }));
+      }
+    } catch (e) { /* nothing cached is nothing to clear */ }
+    if (!jobs.length) { finish(); return; }
+    Promise.all(jobs).then(finish, finish);
   }
 
   function showExport(filename, mime, text, blurb) {

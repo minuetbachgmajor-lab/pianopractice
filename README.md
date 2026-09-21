@@ -126,12 +126,27 @@ an email to yourself.
   minutes, whether it was clean, and the full criteria breakdown.
 - **`piano-practice-backup.json`** — everything, restorable from the same screen.
 
+## Updating an installed app
+
+The app fetches its files from the network first and falls back to the cache, so
+an installed iPad picks up a new release on the next launch and still works with
+no wifi. When a replacement worker takes over, the page reloads once by itself.
+
+This was not always true. The first version cached shell files *cache-first*
+under a hand-bumped name, and forgetting the bump pinned installed devices to the
+day-one build with no visible symptom — three releases never arrived.
+`npm run sw` now installs that original worker, ships a build over the top, and
+fails unless the new one lands. `Grown-ups → Data` shows the running version and
+has a **Force refresh** button that clears the saved copy without touching her
+practice data.
+
 ## Working on it
 
 ```
 npm test        # engine + stats unit tests (Node, no browser)
 npm run lint    # Safari 12 baseline check — bans syntax the iPad cannot parse
 npm run e2e     # drives the real app in Chromium at iPad mini resolution
+npm run sw      # proves a new build actually reaches an already-installed device
 npm start       # static server for local testing
 npm run icons   # regenerate the app icons from the inline SVG
 npm run shots   # screenshots against six weeks of generated history
@@ -147,7 +162,7 @@ no nullish coalescing, no `clamp()`, no flexbox `gap`, no `:is()`, no `<dialog>`
 ```
 index.html            app shell, scripts in load order
 manifest.webmanifest  PWA manifest (iOS 12 reads the <meta> tags instead)
-sw.js                 offline cache — bump CACHE when shell files change
+sw.js                 offline cache — network first, cache as the offline fallback
 css/app.css           all styles, light and dark
 js/criteria.js        the 49-criterion library, groups and assignment rules
 js/store.js           localStorage, versioned state, repair-on-load

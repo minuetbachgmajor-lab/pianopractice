@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node tests/engine.test.js && node tools/compat-lint.js",
     "lint": "node tools/compat-lint.js",
-    "e2e": "node tests/e2e.js",
+    "e2e": "node tests/e2e.js && node tests/sw-update.js",
+    "sw": "node tests/sw-update.js",
     "start": "npx --yes http-server -p 8080 -c-1 .",
     "icons": "node tools/make-icons.js",
     "shots": "node tools/shots.js"
